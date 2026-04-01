@@ -3,7 +3,7 @@
 即梦 AI 免费 API 服务 - 支持文生图、图生图、视频生成的 OpenAI 兼容接口
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-v0.8.8-green.svg)
+![Version](https://img.shields.io/badge/version-v0.8.9-green.svg)
 ![Node](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen.svg)
 ![Docker](https://img.shields.io/badge/docker-ready-blue.svg)
 
@@ -21,6 +21,7 @@ Jimeng AI Free API 是一个逆向工程的 API 服务器，将即梦 AI（Jimen
 - 🎭 **图生图**：多图合成，支持 1-10 张输入图片
 - 🎬 **视频生成**：jimeng-video-3.5-pro 等模型，支持首帧/尾帧控制
 - 🌊 **Seedance 2.0 / 2.0-fast**：多模态智能视频生成，支持图片/视频/音频混合上传，@1、@2 占位符引用素材，fast 版本生成更快
+- 🌍 **国际版 Seedance**：支持国际区域 Token（sg-/it-/jp-/hk- 等前缀），纯算法签名绕过 shark 反爬，支持同步和异步两种模式
 - 🔗 **OpenAI 兼容**：完全兼容 OpenAI API 格式，无缝对接现有客户端
 - 🔄 **多账号支持**：支持多个 sessionid 轮询使用
 
@@ -46,6 +47,8 @@ Jimeng AI Free API 是一个逆向工程的 API 服务器，将即梦 AI（Jimen
 | 多图快速视频 | Seedance 2.0-fast 快速生成 | jimeng-video-seedance-2.0-fast, seedance-2.0-fast | ✅ 可用 |
 | 音频驱动视频 | Seedance 图片+音频混合生成 | jimeng-video-seedance-2.0, seedance-2.0-fast | ✅ 可用 |
 | 异步视频生成 | 提交任务立即返回，查询接口阻塞等待结果 | 所有视频模型 | ✅ 可用 |
+| 国际版 Seedance | 国际区域 Token 纯算法签名绕过 shark | seedance-2.0-fast, seedance-2.0-pro | ✅ 可用 |
+| 国际版异步视频 | 国际版 Seedance 异步生成 | seedance-2.0-fast, seedance-2.0-pro | ✅ 可用 |
 | Chat 接口 | OpenAI 兼容的对话接口 | 所有模型 | ✅ 可用 |
 
 ## 免责声明
@@ -154,6 +157,9 @@ Authorization: Bearer sessionid1,sessionid2,sessionid3
 | `/v1/videos/generations` | POST | 视频生成接口（同步，阻塞等待结果） |
 | `/v1/videos/generations/async` | POST | 异步视频生成接口（提交任务，立即返回 task_id） |
 | `/v1/videos/generations/async/:taskId` | GET | 异步视频生成接口（查询任务结果，阻塞等待） |
+| `/v1/videos/international/generations` | POST | 国际版 Seedance 视频生成（同步） |
+| `/v1/videos/international/generations/async` | POST | 国际版 Seedance 异步视频生成（提交任务） |
+| `/v1/videos/international/generations/async/:taskId` | GET | 国际版 Seedance 异步视频生成（查询结果） |
 | `/v1/models` | GET | 获取模型列表 |
 
 ### 快速开始
@@ -522,6 +528,87 @@ curl http://localhost:8000/v1/videos/generations/async/4f2acc30-2b57-11f1-9361-e
 - `@1` / `@图1` / `@image1` - 引用第一个素材
 - `@2` / `@图2` / `@image2` - 引用第二个素材
 
+### 国际版 Seedance 接口
+
+国际版使用 CapCut/Dreamina 国际平台（`mweb-api-sg.capcut.com`），Token 使用区域前缀格式（如 `sg-xxx`、`it-xxx`）。
+
+#### 同步生成
+
+**POST /v1/videos/international/generations**
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| model | string | 是 | - | seedance-2.0-fast 或 seedance-2.0-pro |
+| prompt | string | 否 | - | 提示词，使用 @1 引用素材 |
+| ratio | string | 否 | 4:3 | 宽高比：4:3, 16:9, 9:16 等 |
+| resolution | string | 否 | 720p | 分辨率 |
+| duration | number | 否 | 4 | 视频时长 4-15 秒 |
+| image_file / image_file_N | file/url | 是* | - | 图片素材（支持 keyed multipart 文件或 URL） |
+| video_file / video_file_N | file/url | 否 | - | 视频素材 |
+
+**调用示例：**
+
+```bash
+# 国际版同步生成（multipart 文件上传）
+curl -X POST http://localhost:8000/v1/videos/international/generations \
+  -H "Authorization: Bearer sg-your_sessionid" \
+  -F "model=seedance-2.0-fast" \
+  -F "prompt=@1 中的人物开始微笑" \
+  -F "ratio=4:3" \
+  -F "duration=4" \
+  -F "image_file=@/path/to/image.jpg"
+
+# 国际版同步生成（JSON + 图片URL）
+curl -X POST http://localhost:8000/v1/videos/international/generations \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sg-your_sessionid" \
+  -d '{
+    "model": "seedance-2.0-fast",
+    "prompt": "@1 中的人物开始微笑",
+    "ratio": "4:3",
+    "duration": 4,
+    "file_paths": ["https://example.com/image.jpg"]
+  }'
+```
+
+#### 异步生成（v0.8.9 新增）
+
+**POST /v1/videos/international/generations/async**
+
+请求参数与同步接口完全一致，但立即返回 `task_id`。
+
+**GET /v1/videos/international/generations/async/:taskId**
+
+查询异步任务结果，服务端阻塞等待视频生成完成后返回。
+
+```bash
+# 提交国际版异步任务
+curl -X POST http://localhost:8000/v1/videos/international/generations/async \
+  -H "Authorization: Bearer sg-your_sessionid" \
+  -F "model=seedance-2.0-fast" \
+  -F "prompt=@1 中的人物开始微笑" \
+  -F "ratio=4:3" \
+  -F "duration=4" \
+  -F "image_file=@/path/to/image.jpg"
+
+# 查询结果
+curl http://localhost:8000/v1/videos/international/generations/async/{task_id}
+```
+
+#### 支持的区域前缀
+
+| 前缀 | 区域 | 前缀 | 区域 | 前缀 | 区域 | 前缀 | 区域 |
+|------|------|------|------|------|------|------|------|
+| `sg-` | 新加坡 | `hk-` | 香港 | `jp-` | 日本 | `it-` | 意大利 |
+| `al-` | 阿尔巴尼亚 | `az-` | 阿塞拜疆 | `bh-` | 巴林 | `ca-` | 加拿大 |
+| `cl-` | 智利 | `de-` | 德国 | `gb-` | 英国 | `gy-` | 圭亚那 |
+| `il-` | 以色列 | `iq-` | 伊拉克 | `jo-` | 约旦 | `kg-` | 吉尔吉斯 |
+| `om-` | 阿曼 | `pk-` | 巴基斯坦 | `pt-` | 葡萄牙 | `sa-` | 沙特 |
+| `se-` | 瑞典 | `tr-` | 土耳其 | `tz-` | 坦桑尼亚 | `uz-` | 乌兹别克 |
+| `ve-` | 委内瑞拉 | `xk-` | 科索沃 | | | | |
+
+> **注意：** US Token（`us-` 前缀）暂不支持国际版 Seedance 2.0 接口。
+
 ## 效果展示
 
 ![image-20260209234137309](https://mypicture-1258720957.cos.ap-nanjing.myqcloud.com/Obsidian/image-20260209234137309.png)
@@ -533,6 +620,16 @@ curl http://localhost:8000/v1/videos/generations/async/4f2acc30-2b57-11f1-9361-e
 ![文生视频 3.0](https://mypicture-1258720957.cos.ap-nanjing.myqcloud.com/Obsidian/QQ_1757688755495.png)
 
 ![文生视频 3.5](https://mypicture-1258720957.cos.ap-nanjing.myqcloud.com/Obsidian/image-20251220192531051.png)
+
+国际版
+
+https://dreamina.capcut.com/
+
+![image-20260401222933526](https://mypicture-1258720957.cos.ap-nanjing.myqcloud.com/Obsidian/image-20260401222933526.png)
+
+部分地区积分政策可能不一样。目前Seedance 2.0-fast  接口首次有0积分
+
+![image-20260401223225792](https://mypicture-1258720957.cos.ap-nanjing.myqcloud.com/Obsidian/image-20260401223225792.png) 
 
 ## 开发指南
 
@@ -562,14 +659,6 @@ npm run build
 # 启动生产服务
 npm start
 ```
-
-### 贡献指南
-
-1. Fork 本项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 创建 Pull Request
 
 ## 安全管理：强制退出历史 Session
 
@@ -736,15 +825,32 @@ Authorization: Bearer sessionid1,sessionid2,sessionid3
 <details>
 <summary>Seedance 视频生成报 "shark not pass" 错误？</summary>
 
-该错误表示即梦的 shark 安全中间件拦截了请求。v0.8.4 已通过 Playwright 浏览器代理解决此问题。请确保：
-
+**国内版（CN Token）**：v0.8.4 已通过 Playwright 浏览器代理解决。请确保：
 1. 已安装 Chromium 浏览器：`npx playwright-core install chromium --with-deps`
 2. Docker 用户请使用 v0.8.4 及以上版本的镜像，Dockerfile 已内置 Chromium 支持
 3. 首次 Seedance 请求会自动启动浏览器（约数秒），后续请求复用会话
 
+**国际版（国际 Token）**：v0.8.9 已通过纯算法签名（X-Bogus / X-Gnarly）绕过，无需安装 Chromium：
+1. 确保 Token 使用正确的区域前缀（如 `sg-`、`it-`、`jp-`）
+2. 签名由 `src/lib/x-bogus.ts` 和 `src/lib/x-gnarly.ts` 自动注入，无需额外配置
+3. US Token（`us-` 前缀）暂不支持国际版 Seedance
+
 </details>
 
 ## 更新日志
+
+### v0.8.9 (2026-04-01) - 国际版 Seedance + 纯算法签名绕过 shark + 异步接口
+
+- 🌍 **新增国际版 Seedance 视频生成接口**：支持国际区域 Token（sg-/it-/jp-/hk- 等 26 个区域前缀），使用 CapCut/Dreamina 国际平台（`mweb-api-sg.capcut.com`）
+  - `POST /v1/videos/international/generations` — 同步视频生成
+  - `POST /v1/videos/international/generations/async` — 异步视频生成（提交任务）
+  - `GET /v1/videos/international/generations/async/:taskId` — 异步视频生成（查询结果）
+- 🔐 **X-Bogus / X-Gnarly 纯算法签名**：国际版 seedance 无需 Playwright 浏览器代理，通过纯 TypeScript 算法绕过 shark 反爬
+  - `src/lib/x-bogus.ts`：MD5 + RC4 + 自定义 Base64 编码签名（URL 查询参数）
+  - `src/lib/x-gnarly.ts`：ChaCha20 PRNG + 自定义 Base64 编码签名（HTTP 请求头）
+- ✨ **国际版异步视频生成**：与国内版异步接口完全对等的功能
+  - 并发控制（最多 10 个）、磁盘持久化（`tmp/async-tasks/`）、服务重启自动恢复、24 小时过期清理
+  - 支持 on-demand 查询：超时任务保持 processing 状态，用户查询时即时检查平台最新状态
 
 ### v0.8.8 (2026-03-29) - 新增异步视频生成接口
 
